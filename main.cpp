@@ -1,13 +1,11 @@
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
 
-int WIDTH = 800;
-int HEIGHT = 600;
-
 struct SDL_State
 {
     SDL_Window *window;
     SDL_Renderer *renderer;
+    int logW, logH, width, height;
 };
 
 void cleanup(const SDL_State &state)
@@ -19,24 +17,28 @@ void cleanup(const SDL_State &state)
 
 void cleanup_texture(SDL_Texture *texture) { SDL_DestroyTexture(texture); }
 
-int main(int argc, char *argv[])
+bool initialize(SDL_State& state)
 {
-    SDL_State state{};
+    state.width = 1600;
+    state.height = 900;
+    state.logW = 640;
+    state.logH = 320;
 
+    bool init_success = true;
     if (!SDL_Init(SDL_INIT_VIDEO))
     {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error",
                                  "Error Initializing SDL3", nullptr);
-        return 1;
+        init_success = false;
     }
 
-    state.window = SDL_CreateWindow("Trench Invasion", WIDTH, HEIGHT,
+    state.window = SDL_CreateWindow("Trench Invasion", state.width, state.height,
                                     SDL_WINDOW_RESIZABLE);
-    SDL_Event event;
     if (!state.window)
     {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error",
                                  "Can't create Window", nullptr);
+        init_success = false;
     }
 
     state.renderer = SDL_CreateRenderer(state.window, nullptr);
@@ -45,13 +47,19 @@ int main(int argc, char *argv[])
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error",
                                  "Can't create Renderer", state.window);
         cleanup(state);
+        init_success = false;
     }
 
-    int logW = 640;
-    int logH = 320;
-    SDL_SetRenderLogicalPresentation(state.renderer, logW, logH,
-                                     SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    SDL_SetRenderLogicalPresentation(state.renderer, state.logW, state.logH,SDL_LOGICAL_PRESENTATION_LETTERBOX);
 
+    return init_success;
+}
+
+int main(int argc, char *argv[])
+{
+    SDL_State state{};
+    initialize(state);
+    SDL_Event event;
     SDL_Texture *idleTexture =
         IMG_LoadTexture(state.renderer, "assets/idle.png");
     SDL_SetTextureScaleMode(idleTexture, SDL_SCALEMODE_NEAREST);
@@ -77,8 +85,8 @@ int main(int argc, char *argv[])
                 }
                 case SDL_EVENT_WINDOW_RESIZED:
                 {
-                    WIDTH = event.window.data1;
-                    HEIGHT = event.window.data2;
+                    state.width = event.window.data1;
+                    state.height = event.window.data2;
                     break;;
                 }
             }
