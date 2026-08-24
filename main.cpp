@@ -1,9 +1,6 @@
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
 
-// int WIDTH = 800;
-// int HEIGHT = 600;
-
 struct SDL_State
 {
     SDL_Window *window;
