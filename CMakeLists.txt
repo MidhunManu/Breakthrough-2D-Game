@@ -22,6 +22,7 @@ add_executable(trench_invasion
         main.cpp
         Timer.h
         Animation.h
+        GameObject.h
 )
 
 target_link_libraries(trench_invasion

@@ -1,24 +1,42 @@
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
-#include <glm/glm.hpp>
-#include "Animation.h"
-
 #include <vector>
 #include <string>
+#include <array>
+
+#include "GameObject.h"
 
 struct SDL_State
 {
+    SDL_State(): keys(SDL_GetKeyboardState(nullptr)) {};
+
+    const bool* keys;
     SDL_Window *window;
     SDL_Renderer *renderer;
     int logW, logH, width, height;
 };
 
+const size_t LAYER_INDEX_LEVEL = 0;
+const size_t LAYER_INDEX_CHARACTERS = 1;
+
+struct GameState
+{
+    std::array<std::vector<GameObject>, 2> layers;
+    int player_index;
+
+    GameState()
+    {
+        player_index = 0;
+    }
+};
+
 struct Resources
 {
     const int AN_PLAYER_IDLE = 0;
+    const int AN_PLAYER_RUN = 1;
     std::vector<Animation> playerAnimations;
     std::vector<SDL_Texture*> textures;
-    SDL_Texture* idle_texture;
+    SDL_Texture* idle_texture, *running_texture;
 
     SDL_Texture* load_texture(SDL_Renderer* renderer, const std::string& file_path)
     {
@@ -32,7 +50,9 @@ struct Resources
     {
         playerAnimations.resize(5);
         playerAnimations[AN_PLAYER_IDLE] = Animation(8, 1.6f);
+        playerAnimations[AN_PLAYER_RUN] = Animation(4, 0.5f);
         idle_texture = load_texture(state.renderer, "assets/idle.png");
+        running_texture = load_texture(state.renderer, "assets/run.png");
     }
 
     void unload()
@@ -89,19 +109,28 @@ bool initialize(SDL_State& state)
     return init_success;
 }
 
+void drawObject(const SDL_State& state, GameState& game_state, GameObject& game_object, float delta_time);
+void update(const SDL_State& state, GameState& game_state,Resources& resources, GameObject& game_object, float delta_time);
+
 int main(int argc, char *argv[])
 {
     SDL_State state{};
-    initialize(state);
-    const float sprite_size = 32;
-
-
-    const bool* keys = SDL_GetKeyboardState(nullptr);
-    float playerX = 150;
-    float floor = state.logH;
-
     Resources resources;
+
+    initialize(state);
     resources.load(state);
+
+    GameState game_state;
+    GameObject player;
+    player.type = ObjectType::player;
+    player.data.player = PlayerData();
+    player.texture = resources.idle_texture;
+    player.animations = resources.playerAnimations;
+    player.currentAnimation = resources.AN_PLAYER_IDLE;
+    player.acceleration = glm::vec2(300, 0);
+    player.max_speed_x = 100;
+    player.position = { 32, 32 };
+    game_state.layers[LAYER_INDEX_CHARACTERS].push_back(player);
 
     if (!resources.idle_texture)
     {
@@ -112,7 +141,6 @@ int main(int argc, char *argv[])
 
     bool running = true;
     uint64_t prev_time = SDL_GetTicks();
-    bool flip_horizontal = false;
     while (running)
     {
         uint64_t now_time = SDL_GetTicks();
@@ -136,29 +164,19 @@ int main(int argc, char *argv[])
                 }
             }
         }
-
-        float move_amount = 0;
-        if (keys[SDL_SCANCODE_A])
-        {
-            move_amount -= 75;
-            flip_horizontal = true;
-        }
-        if (keys[SDL_SCANCODE_D])
-        {
-            move_amount += 75;
-            flip_horizontal = false;
-        }
-
-        playerX += move_amount * delta_time;
-
         SDL_SetRenderDrawColor(state.renderer, 20, 10, 30, 255);
         SDL_RenderClear(state.renderer);
+        for (auto& layer: game_state.layers)
+        {
+            for (GameObject& object: layer)
+            {
+                update(state, game_state,resources, object, delta_time);
+                if (object.currentAnimation != -1)
+                    object.animations[object.currentAnimation].step(delta_time);
+                drawObject(state, game_state, object, delta_time);
+            }
+        }
 
-        SDL_FRect src{0, 0, sprite_size, sprite_size};
-
-        SDL_FRect dest{playerX, floor - sprite_size, sprite_size, sprite_size};
-
-        SDL_RenderTextureRotated(state.renderer, resources.idle_texture, &src, &dest, 0, nullptr, flip_horizontal ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
 
 
         SDL_RenderPresent(state.renderer);
@@ -168,4 +186,81 @@ int main(int argc, char *argv[])
     resources.unload();
     cleanup(state);
     return 0;
+}
+
+void drawObject(const SDL_State& state, GameState& game_state, GameObject& game_object, float delta_time)
+{
+    const float sprite_size = 32;
+    float srcX = game_object.currentAnimation != -1
+        ? game_object.animations[game_object.currentAnimation].current_frame() * sprite_size : 0.0f;
+    SDL_FRect src{srcX, 0, sprite_size, sprite_size};
+    SDL_FRect dest{game_object.position.x, game_object.position.y, sprite_size, sprite_size};
+    SDL_FlipMode flip_mode = game_object.direction == -1 ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+    SDL_RenderTextureRotated(state.renderer, game_object.texture, &src, &dest, 0, nullptr, flip_mode);
+}
+
+void update(const SDL_State& state, GameState& game_state, Resources& resources, GameObject& game_object, float delta_time)
+{
+    if (game_object.type == ObjectType::player)
+    {
+        float current_direction = 0;
+        if (state.keys[SDL_SCANCODE_A])
+        {
+            current_direction--;
+        }
+        if (state.keys[SDL_SCANCODE_D])
+        {
+            current_direction++;
+        }
+        if (current_direction)
+        {
+            game_object.direction = current_direction;
+        }
+
+        switch (game_object.data.player.state)
+        {
+            case PlayerState::idle:
+            {
+                if (current_direction)
+                {
+                    game_object.data.player.state = PlayerState::running;
+                    game_object.texture = resources.running_texture;
+                    game_object.currentAnimation = resources.AN_PLAYER_RUN;
+                } else
+                {
+                    if (game_object.velocity.x)
+                    {
+                        const float factor = game_object.velocity.x > 0 ? -1.5f : 1.5f;
+                        float amount = factor * game_object.acceleration.x * delta_time;
+                        if (std::abs(game_object.velocity.x) < std::abs(amount))
+                        {
+                            game_object.velocity.x = 0;
+                        } else
+                        {
+                            game_object.velocity.x += amount;
+                        }
+                    }
+                }
+                break;
+            }
+
+            case PlayerState::running:
+            {
+                if (!current_direction)
+                {
+                    game_object.data.player.state = PlayerState::idle;
+                    game_object.texture = resources.idle_texture;
+                    game_object.currentAnimation = resources.AN_PLAYER_IDLE;
+                }
+                break;
+            }
+        }
+
+        game_object.velocity += current_direction * game_object.acceleration * delta_time;
+        if (std::abs(game_object.velocity.x) > game_object.max_speed_x)
+        {
+            game_object.velocity.x = current_direction * game_object.max_speed_x;
+        }
+        game_object.position += game_object.velocity * delta_time;
+    }
 }
