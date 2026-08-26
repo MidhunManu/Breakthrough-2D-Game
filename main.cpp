@@ -1,5 +1,6 @@
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
+#include "Animation.h"
 
 struct SDL_State
 {
@@ -81,7 +82,7 @@ int main(int argc, char *argv[])
     while (running)
     {
         uint64_t now_time = SDL_GetTicks();
-        float delta_time = (now_time - prev_time) / 1000.0f;
+        float delta_time = static_cast<float>(now_time - prev_time) / 1000.0f;
         SDL_Event event {0};
 
         while (SDL_PollEvent(&event))
