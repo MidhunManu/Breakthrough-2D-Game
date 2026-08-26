@@ -8,7 +8,7 @@ public:
         m_timer(0), m_frame_count(0)
     {}
 
-    Animation(int frame_count, int length):
+    Animation(int frame_count, float length):
         m_frame_count(frame_count), m_timer(length)
     {}
 

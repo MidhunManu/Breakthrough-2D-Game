@@ -2,11 +2,45 @@
 #include <SDL3_image/SDL_image.h>
 #include "Animation.h"
 
+#include <vector>
+#include <string>
+
 struct SDL_State
 {
     SDL_Window *window;
     SDL_Renderer *renderer;
     int logW, logH, width, height;
+};
+
+struct Resources
+{
+    const int AN_PLAYER_IDLE = 0;
+    std::vector<Animation> playerAnimations;
+    std::vector<SDL_Texture*> textures;
+    SDL_Texture* idle_texture;
+
+    SDL_Texture* load_texture(SDL_Renderer* renderer, const std::string& file_path)
+    {
+        SDL_Texture *texture = IMG_LoadTexture(renderer, file_path.c_str());
+        SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
+        textures.push_back(texture);
+        return texture;
+    }
+
+    void load(SDL_State& state)
+    {
+        playerAnimations.resize(5);
+        playerAnimations[AN_PLAYER_IDLE] = Animation(8, 1.6f);
+        idle_texture = load_texture(state.renderer, "assets/idle.png");
+    }
+
+    void unload()
+    {
+        for (auto tex: textures)
+        {
+            SDL_DestroyTexture(tex);
+        }
+    }
 };
 
 void cleanup(const SDL_State &state)
@@ -15,8 +49,6 @@ void cleanup(const SDL_State &state)
     SDL_DestroyRenderer(state.renderer);
     SDL_Quit();
 }
-
-void cleanup_texture(SDL_Texture *texture) { SDL_DestroyTexture(texture); }
 
 bool initialize(SDL_State& state)
 {
@@ -61,15 +93,16 @@ int main(int argc, char *argv[])
     SDL_State state{};
     initialize(state);
     const float sprite_size = 32;
-    SDL_Texture *idleTexture =
-        IMG_LoadTexture(state.renderer, "assets/idle.png");
-    SDL_SetTextureScaleMode(idleTexture, SDL_SCALEMODE_NEAREST);
+
 
     const bool* keys = SDL_GetKeyboardState(nullptr);
     float playerX = 150;
     float floor = state.logH;
 
-    if (!idleTexture)
+    Resources resources;
+    resources.load(state);
+
+    if (!resources.idle_texture)
     {
         SDL_Log("IMG_LoadTexture failed: %s", SDL_GetError());
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error",
@@ -124,14 +157,14 @@ int main(int argc, char *argv[])
 
         SDL_FRect dest{playerX, floor - sprite_size, sprite_size, sprite_size};
 
-        SDL_RenderTextureRotated(state.renderer, idleTexture, &src, &dest, 0, nullptr, flip_horizontal ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
+        SDL_RenderTextureRotated(state.renderer, resources.idle_texture, &src, &dest, 0, nullptr, flip_horizontal ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
 
 
         SDL_RenderPresent(state.renderer);
         prev_time = now_time;
     }
 
-    cleanup_texture(idleTexture);
+    resources.unload();
     cleanup(state);
     return 0;
 }
