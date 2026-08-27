@@ -40,7 +40,7 @@ struct Resources
     std::vector<Animation> playerAnimations;
     std::vector<SDL_Texture*> textures;
     SDL_Texture* idle_texture, *running_texture;
-    SDL_Texture* texture_grass, texture_panel, *texture_ground, *texture_brick;
+    SDL_Texture* texture_grass, *texture_panel, *texture_ground, *texture_brick;
 
     SDL_Texture* load_texture(SDL_Renderer* renderer, const std::string& file_path)
     {
@@ -58,6 +58,9 @@ struct Resources
         idle_texture = load_texture(state.renderer, "assets/idle.png");
         running_texture = load_texture(state.renderer, "assets/run.png");
         texture_brick = load_texture(state.renderer, "assets/brick.png");
+        texture_grass = load_texture(state.renderer, "assets/grass.png");
+        texture_panel = load_texture(state.renderer, "assets/panel.png");
+        texture_ground = load_texture(state.renderer, "assets/ground.png");
     }
 
     void unload()
@@ -275,11 +278,11 @@ void create_tiles(SDL_State& state, GameState& game_state, Resources& resources)
      */
 
     short map[MAP_ROWS][MAP_COLS] = {
-        {0,0,0,0,0,0,0,0,0,0},
-        {0,0,0,0,0,0,0,0,0,0},
-        {0,0,0,0,0,0,0,0,0,0},
         {4,0,0,0,0,0,0,0,0,0},
-        {1,1,1,1,0,0,0,0,0,0},
+        {0,0,0,0,0,0,0,0,0,0},
+        {0,0,2,0,0,0,0,0,0,0},
+        {0,2,2,0,0,0,0,0,0,0},
+        {1,1,1,1,1,1,0,0,0,0},
     };
 
     const auto create_object = [&state] (int r, int c, SDL_Texture* tex, ObjectType type)
@@ -299,10 +302,23 @@ void create_tiles(SDL_State& state, GameState& game_state, Resources& resources)
             {
                 case 1:
                 {
-                    GameObject brick = create_object(r, c, resources.texture_brick, ObjectType::level);
-                    game_state.layers[LAYER_INDEX_LEVEL].push_back(brick);
+                    GameObject ground = create_object(r, c, resources.texture_ground, ObjectType::level);
+                    game_state.layers[LAYER_INDEX_LEVEL].push_back(ground);
                     break;
                 }
+
+                case 2:
+                {
+                    GameObject panel = create_object(r, c, resources.texture_panel, ObjectType::level);
+                    game_state.layers[LAYER_INDEX_LEVEL].push_back(panel);
+                    break;
+                }
+
+                case 3:
+                {
+                    break;
+                }
+
                 case 4:
                 {
                     GameObject player = create_object(r, c, resources.idle_texture, ObjectType::player);
@@ -313,6 +329,20 @@ void create_tiles(SDL_State& state, GameState& game_state, Resources& resources)
                     player.acceleration = glm::vec2(300, 0);
                     player.max_speed_x = 100;
                     game_state.layers[LAYER_INDEX_CHARACTERS].push_back(player);
+                    break;
+                }
+
+                case 5:
+                {
+                    GameObject grass = create_object(r, c, resources.texture_grass, ObjectType::level);
+                    game_state.layers[LAYER_INDEX_LEVEL].push_back(grass);
+                    break;
+                }
+
+                case 6:
+                {
+                    GameObject brick = create_object(r, c, resources.texture_brick, ObjectType::level);
+                    game_state.layers[LAYER_INDEX_LEVEL].push_back(brick);
                     break;
                 }
             }
