@@ -201,6 +201,11 @@ void drawObject(const SDL_State& state, GameState& game_state, GameObject& game_
 
 void update(const SDL_State& state, GameState& game_state, Resources& resources, GameObject& game_object, float delta_time)
 {
+    if (game_object.has_gravity)
+    {
+        game_object.velocity += glm::vec2(0, 500) * delta_time;
+    }
+
     if (game_object.type == ObjectType::player)
     {
         float current_direction = 0;
@@ -261,8 +266,9 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
         {
             game_object.velocity.x = current_direction * game_object.max_speed_x;
         }
-        game_object.position += game_object.velocity * delta_time;
     }
+    game_object.position += game_object.velocity * delta_time;
+
 }
 
 void create_tiles(SDL_State& state, GameState& game_state, Resources& resources)
@@ -322,7 +328,8 @@ void create_tiles(SDL_State& state, GameState& game_state, Resources& resources)
                 case 4:
                 {
                     GameObject player = create_object(r, c, resources.idle_texture, ObjectType::player);
-                    
+
+                    player.has_gravity = true;
                     player.data.player = PlayerData();
                     player.animations = resources.playerAnimations;
                     player.currentAnimation = resources.AN_PLAYER_IDLE;
