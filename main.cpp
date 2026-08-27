@@ -353,17 +353,17 @@ void check_collision(
 )
 {
     SDL_FRect rectA {
-        .x = A.position.x,
-        .y = A.position.y,
-        .w = TILE_SIZE,
-        .h = TILE_SIZE,
+        .x = A.position.x + A.collider.x,
+        .y = A.position.y + A.collider.y,
+        .w = A.collider.w,
+        .h = A.collider.h,
     };
 
     SDL_FRect rectB {
-        .x = B.position.x,
-        .y = B.position.y,
-        .w = TILE_SIZE,
-        .h = TILE_SIZE,
+        .x = B.position.x + B.collider.x,
+        .y = B.position.y + B.collider.y,
+        .w = B.collider.w,
+        .h = B.collider.h,
     };
 
     SDL_FRect rectC {0};
@@ -400,8 +400,8 @@ void create_tiles(SDL_State& state, GameState& game_state, Resources& resources)
         {0,0,4,0,0,0,0,0,0,0},
         {0,0,0,0,0,0,0,0,0,0},
         {0,0,2,0,0,0,0,0,0,0},
-        {0,2,2,0,0,0,0,0,0,0},
-        {1,1,1,1,1,1,0,0,0,0},
+        {0,2,2,0,0,0,0,0,0,2},
+        {1,1,1,1,1,1,1,1,1,1},
     };
 
     const auto create_object = [&state] (int r, int c, SDL_Texture* tex, ObjectType type)
@@ -410,6 +410,13 @@ void create_tiles(SDL_State& state, GameState& game_state, Resources& resources)
         game_object.type = type;
         game_object.texture = tex;
         game_object.position = glm::vec2(c * TILE_SIZE, state.logH - (MAP_ROWS - r) * TILE_SIZE);
+        game_object.collider = {
+            .x = 0,
+            .y = 0,
+            .w = TILE_SIZE,
+            .h = TILE_SIZE
+        };
+
         return game_object;
     };
 
@@ -448,6 +455,12 @@ void create_tiles(SDL_State& state, GameState& game_state, Resources& resources)
                     player.currentAnimation = resources.AN_PLAYER_IDLE;
                     player.acceleration = glm::vec2(300, 0);
                     player.max_speed_x = 100;
+                    player.collider = {
+                        .x = 11,
+                        .y = 6,
+                        .w = 10,
+                        .h = 26
+                    };
                     game_state.layers[LAYER_INDEX_CHARACTERS].push_back(player);
                     break;
                 }

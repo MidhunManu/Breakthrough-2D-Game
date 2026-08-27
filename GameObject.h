@@ -49,8 +49,9 @@ struct GameObject
     int currentAnimation;
     SDL_Texture* texture;
     bool has_gravity;
+    SDL_FRect collider;
 
-    GameObject(): data{.level = LevelData()}
+    GameObject(): data{.level = LevelData()}, collider{0}
     {
         type = ObjectType::level;
         max_speed_x = 0;
