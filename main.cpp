@@ -18,6 +18,9 @@ struct SDL_State
 
 const size_t LAYER_INDEX_LEVEL = 0;
 const size_t LAYER_INDEX_CHARACTERS = 1;
+const int MAP_ROWS = 5;
+const int MAP_COLS = 50;
+const int TILE_SIZE = 32;
 
 struct GameState
 {
@@ -37,6 +40,7 @@ struct Resources
     std::vector<Animation> playerAnimations;
     std::vector<SDL_Texture*> textures;
     SDL_Texture* idle_texture, *running_texture;
+    SDL_Texture* texture_grass, texture_panel, *texture_ground, *texture_brick;
 
     SDL_Texture* load_texture(SDL_Renderer* renderer, const std::string& file_path)
     {
@@ -53,6 +57,7 @@ struct Resources
         playerAnimations[AN_PLAYER_RUN] = Animation(4, 0.5f);
         idle_texture = load_texture(state.renderer, "assets/idle.png");
         running_texture = load_texture(state.renderer, "assets/run.png");
+        texture_brick = load_texture(state.renderer, "assets/brick.png");
     }
 
     void unload()
@@ -111,6 +116,7 @@ bool initialize(SDL_State& state)
 
 void drawObject(const SDL_State& state, GameState& game_state, GameObject& game_object, float delta_time);
 void update(const SDL_State& state, GameState& game_state,Resources& resources, GameObject& game_object, float delta_time);
+void create_tiles(SDL_State& state, GameState& game_state, Resources& resources);
 
 int main(int argc, char *argv[])
 {
@@ -121,16 +127,7 @@ int main(int argc, char *argv[])
     resources.load(state);
 
     GameState game_state;
-    GameObject player;
-    player.type = ObjectType::player;
-    player.data.player = PlayerData();
-    player.texture = resources.idle_texture;
-    player.animations = resources.playerAnimations;
-    player.currentAnimation = resources.AN_PLAYER_IDLE;
-    player.acceleration = glm::vec2(300, 0);
-    player.max_speed_x = 100;
-    player.position = { 32, 32 };
-    game_state.layers[LAYER_INDEX_CHARACTERS].push_back(player);
+    create_tiles(state, game_state, resources);
 
     if (!resources.idle_texture)
     {
@@ -262,5 +259,63 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
             game_object.velocity.x = current_direction * game_object.max_speed_x;
         }
         game_object.position += game_object.velocity * delta_time;
+    }
+}
+
+void create_tiles(SDL_State& state, GameState& game_state, Resources& resources)
+{
+    /*
+      O -> empty tile
+      1 -> Ground
+      2 -> Panel
+      3 -> Enemy
+      4 -> Player
+      5 -> Grass
+      6 -> Brick
+     */
+
+    short map[MAP_ROWS][MAP_COLS] = {
+        {0,0,0,0,0,0,0,0,0,0},
+        {0,0,0,0,0,0,0,0,0,0},
+        {0,0,0,0,0,0,0,0,0,0},
+        {4,0,0,0,0,0,0,0,0,0},
+        {1,1,1,1,0,0,0,0,0,0},
+    };
+
+    const auto create_object = [&state] (int r, int c, SDL_Texture* tex, ObjectType type)
+    {
+        GameObject game_object;
+        game_object.type = type;
+        game_object.texture = tex;
+        game_object.position = glm::vec2(c * TILE_SIZE, state.logH - (MAP_ROWS - r) * TILE_SIZE);
+        return game_object;
+    };
+
+    for (int r = 0; r < MAP_ROWS; r++)
+    {
+        for (int c = 0; c < MAP_COLS; c++)
+        {
+            switch (map[r][c])
+            {
+                case 1:
+                {
+                    GameObject brick = create_object(r, c, resources.texture_brick, ObjectType::level);
+                    game_state.layers[LAYER_INDEX_LEVEL].push_back(brick);
+                    break;
+                }
+                case 4:
+                {
+                    GameObject player = create_object(r, c, resources.idle_texture, ObjectType::player);
+                    
+                    player.data.player = PlayerData();
+                    player.animations = resources.playerAnimations;
+                    player.currentAnimation = resources.AN_PLAYER_IDLE;
+                    player.acceleration = glm::vec2(300, 0);
+                    player.max_speed_x = 100;
+                    game_state.layers[LAYER_INDEX_CHARACTERS].push_back(player);
+                    break;
+                }
+            }
+        }
     }
 }
