@@ -120,6 +120,14 @@ bool initialize(SDL_State& state)
 void drawObject(const SDL_State& state, GameState& game_state, GameObject& game_object, float delta_time);
 void update(const SDL_State& state, GameState& game_state,Resources& resources, GameObject& game_object, float delta_time);
 void create_tiles(SDL_State& state, GameState& game_state, Resources& resources);
+void check_collision(
+    const SDL_State& state,
+    GameState& game_state,
+    Resources& resources,
+    GameObject& A,
+    GameObject& B,
+    float delta_time
+);
 
 int main(int argc, char *argv[])
 {
@@ -268,7 +276,112 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
         }
     }
     game_object.position += game_object.velocity * delta_time;
+     for(auto& layer: game_state.layers)
+    {
+        for(GameObject& objB: layer)
+        {
+            if (&game_object != &objB)
+            {
+                check_collision(
+                    state,
+                    game_state,
+                    resources,
+                    game_object,
+                    objB,
+                    delta_time
+                );
+            }
+        }
+    }
+}
 
+void collision_response(
+    const SDL_State& state,
+    GameState& game_state,
+    GameObject& game_objectA,
+    GameObject& game_objectB,
+    Resources& resources,
+    SDL_FRect& rectA,
+    SDL_FRect& rectB,
+    SDL_FRect& rectC,
+    float delta_time
+)
+{
+    if (game_objectA.type == ObjectType::player)
+    {
+        switch(game_objectB.type)
+        {
+            case ObjectType::level:
+            {
+                if (rectC.w < rectC.h)
+                {
+                    if (game_objectA.velocity.x > 0)
+                    {
+                        game_objectA.position.x -= rectC.w;
+                    }
+                    else if (game_objectA.velocity.x < 0)
+                    {
+                        game_objectA.position.x += rectC.w;
+                    }
+                    game_objectA.velocity.x = 0;
+                }
+                else
+                {
+                    if (game_objectA.velocity.y > 0)
+                    {
+                        game_objectA.position.y -= rectC.h;
+                    }
+                    else if (game_objectA.velocity.y < 0)
+                    {
+                        game_objectA.position.y += rectC.h;
+                    }
+                    game_objectA.velocity.y = 0;
+                }
+            }
+            break;
+        }
+    }
+}
+
+void check_collision(
+    const SDL_State& state,
+    GameState& game_state,
+    Resources& resources,
+    GameObject& A,
+    GameObject& B,
+    float delta_time
+)
+{
+    SDL_FRect rectA {
+        .x = A.position.x,
+        .y = A.position.y,
+        .w = TILE_SIZE,
+        .h = TILE_SIZE,
+    };
+
+    SDL_FRect rectB {
+        .x = B.position.x,
+        .y = B.position.y,
+        .w = TILE_SIZE,
+        .h = TILE_SIZE,
+    };
+
+    SDL_FRect rectC {0};
+
+    if (SDL_GetRectIntersectionFloat(&rectA, &rectB, &rectC))
+    {
+        collision_response(
+            state,
+            game_state,
+            A,
+            B,
+            resources,
+            rectA,
+            rectB,
+            rectC,
+            delta_time
+        );
+    }
 }
 
 void create_tiles(SDL_State& state, GameState& game_state, Resources& resources)
