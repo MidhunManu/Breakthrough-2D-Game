@@ -397,7 +397,7 @@ void create_tiles(SDL_State& state, GameState& game_state, Resources& resources)
      */
 
     short map[MAP_ROWS][MAP_COLS] = {
-        {4,0,0,0,0,0,0,0,0,0},
+        {0,0,4,0,0,0,0,0,0,0},
         {0,0,0,0,0,0,0,0,0,0},
         {0,0,2,0,0,0,0,0,0,0},
         {0,2,2,0,0,0,0,0,0,0},
