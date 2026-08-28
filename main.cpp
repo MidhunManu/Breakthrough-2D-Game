@@ -285,6 +285,8 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                         }
                     }
                 }
+                game_object.texture = resources.idle_texture;
+                game_object.currentAnimation = resources.AN_PLAYER_IDLE;
                 break;
             }
 
@@ -293,9 +295,17 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                 if (!current_direction)
                 {
                     game_object.data.player.state = PlayerState::idle;
-                    game_object.texture = resources.idle_texture;
-                    game_object.currentAnimation = resources.AN_PLAYER_IDLE;
                 }
+                game_object.texture = resources.running_texture;
+                game_object.currentAnimation = resources.AN_PLAYER_RUN;
+                break;
+            }
+
+            case PlayerState::jumping:
+            {
+                game_object.texture = resources.running_texture;
+                game_object.currentAnimation = resources.AN_PLAYER_RUN;
+                break;
                 break;
             }
         }
