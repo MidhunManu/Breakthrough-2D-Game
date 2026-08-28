@@ -44,10 +44,11 @@ struct Resources
 {
     const int AN_PLAYER_IDLE = 0;
     const int AN_PLAYER_RUN = 1;
+    const int AN_PLAYER_SLIDE = 2;
     std::vector<Animation> playerAnimations;
     std::vector<SDL_Texture*> textures;
     SDL_Texture* idle_texture, *running_texture;
-    SDL_Texture* texture_grass, *texture_panel, *texture_ground, *texture_brick;
+    SDL_Texture* texture_grass, *texture_panel, *texture_ground, *texture_brick, *texture_slide;
 
     SDL_Texture* load_texture(SDL_Renderer* renderer, const std::string& file_path)
     {
@@ -62,12 +63,15 @@ struct Resources
         playerAnimations.resize(5);
         playerAnimations[AN_PLAYER_IDLE] = Animation(8, 1.6f);
         playerAnimations[AN_PLAYER_RUN] = Animation(4, 0.5f);
+        playerAnimations[AN_PLAYER_SLIDE] = Animation(1, 1.0f);
+
         idle_texture = load_texture(state.renderer, "assets/idle.png");
         running_texture = load_texture(state.renderer, "assets/run.png");
         texture_brick = load_texture(state.renderer, "assets/brick.png");
         texture_grass = load_texture(state.renderer, "assets/grass.png");
         texture_panel = load_texture(state.renderer, "assets/panel.png");
         texture_ground = load_texture(state.renderer, "assets/ground.png");
+        texture_slide = load_texture(state.renderer, "assets/slide.png");
     }
 
     void unload()
@@ -296,8 +300,17 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                 {
                     game_object.data.player.state = PlayerState::idle;
                 }
-                game_object.texture = resources.running_texture;
-                game_object.currentAnimation = resources.AN_PLAYER_RUN;
+
+                if (game_object.velocity.x * game_object.direction < 0 && game_object.grounded)
+                {
+                    game_object.texture = resources.texture_slide;
+                    game_object.currentAnimation = resources.AN_PLAYER_SLIDE;
+                }
+                else
+                {
+                    game_object.texture = resources.running_texture;
+                    game_object.currentAnimation = resources.AN_PLAYER_RUN;
+                }
                 break;
             }
 
