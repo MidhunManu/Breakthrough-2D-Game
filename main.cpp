@@ -223,6 +223,11 @@ int main(int argc, char *argv[])
         #endif
 
         SDL_RenderPresent(state.renderer);
+        const float MAX_DELTA_TIME = 1.0f / 30.0f;
+        if (delta_time > MAX_DELTA_TIME)
+        {
+            delta_time = MAX_DELTA_TIME;
+        }
         prev_time = now_time;
     }
 
@@ -479,11 +484,11 @@ void create_tiles(SDL_State& state, GameState& game_state, Resources& resources)
      */
 
     short map[MAP_ROWS][MAP_COLS] = {
-        {0,0,4,0,0,0,0,0,0,0},
-        {0,0,0,0,0,0,0,0,0,0},
-        {0,0,2,0,0,0,0,0,0,0},
-        {0,2,2,0,0,0,0,0,0,2},
-        {1,1,1,1,1,1,1,1,1,1},
+        {0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {0,2,2,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0},
+        {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
     };
 
     const auto create_object = [&state] (int r, int c, SDL_Texture* tex, ObjectType type)
