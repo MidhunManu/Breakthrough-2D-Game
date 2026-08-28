@@ -29,6 +29,7 @@ struct GameState
     std::array<std::vector<GameObject>, 2> layers;
     int player_index;
     SDL_FRect mapViewport;
+    float bg2_scroll, bg3_scroll, bg4_scroll;
 
     GameState(const SDL_State& state)
     {
@@ -39,6 +40,7 @@ struct GameState
             .w = static_cast<float>(state.logW),
             .h = static_cast<float>(state.logH),
         };
+        bg2_scroll = bg3_scroll = bg4_scroll = 0.0f;
     }
 
     GameObject& player()
@@ -157,6 +159,14 @@ void handle_key_input(
     SDL_Scancode key,
     bool key_down
 );
+void draw_paralax_bg(
+    SDL_Renderer* renderer,
+    SDL_Texture* texture,
+    float x_velocity,
+    float& scroll_pos,
+    float scroll_factor,
+    float delta_time
+);
 
 int main(int argc, char *argv[])
 {
@@ -214,6 +224,30 @@ int main(int argc, char *argv[])
         SDL_SetRenderDrawColor(state.renderer, 20, 10, 30, 255);
         SDL_RenderClear(state.renderer);
         SDL_RenderTexture(state.renderer, resources.texture_bg1, nullptr, nullptr);
+        draw_paralax_bg(
+            state.renderer,
+            resources.texture_bg4,
+            game_state.player().velocity.x,
+            game_state.bg4_scroll,
+            0.075f,
+            delta_time
+        );
+        draw_paralax_bg(
+            state.renderer,
+            resources.texture_bg3,
+            game_state.player().velocity.x,
+            game_state.bg3_scroll,
+            0.150f,
+            delta_time
+        );
+        draw_paralax_bg(
+            state.renderer,
+            resources.texture_bg2,
+            game_state.player().velocity.x,
+            game_state.bg2_scroll,
+            0.3f,
+            delta_time
+        );
 
         for (auto& layer: game_state.layers)
         {
@@ -620,4 +654,29 @@ void handle_key_input(
             }
         }
     }
+}
+
+void draw_paralax_bg(
+    SDL_Renderer* renderer,
+    SDL_Texture* texture,
+    float x_velocity,
+    float& scroll_pos,
+    float scroll_factor,
+    float delta_time
+)
+{
+    scroll_pos -= x_velocity * scroll_factor * delta_time;
+    if (scroll_pos <= -texture->w)
+    {
+        scroll_pos = 0;
+    }
+
+    SDL_FRect dest {
+        .x = scroll_pos,
+        .y = 35,
+        .h = static_cast<float>(texture->h),
+        .w = texture->w * 2.0f,
+    };
+
+    SDL_RenderTextureTiled(renderer, texture, nullptr, 1, &dest);
 }
