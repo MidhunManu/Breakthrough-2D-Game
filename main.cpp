@@ -28,10 +28,17 @@ struct GameState
 {
     std::array<std::vector<GameObject>, 2> layers;
     int player_index;
+    SDL_FRect mapViewport;
 
-    GameState()
+    GameState(const SDL_State& state)
     {
         player_index = -1;
+        mapViewport = SDL_FRect {
+            .x = 0,
+            .y = 0,
+            .w = static_cast<float>(state.logW),
+            .h = static_cast<float>(state.logH),
+        };
     }
 
     GameObject& player()
@@ -48,7 +55,7 @@ struct Resources
     std::vector<Animation> playerAnimations;
     std::vector<SDL_Texture*> textures;
     SDL_Texture* idle_texture, *running_texture;
-    SDL_Texture* texture_grass, *texture_panel, *texture_ground, *texture_brick, *texture_slide;
+    SDL_Texture* texture_grass, *texture_panel, *texture_ground, *texture_brick, *texture_slide, *texture_bg1, *texture_bg2, *texture_bg3, *texture_bg4;
 
     SDL_Texture* load_texture(SDL_Renderer* renderer, const std::string& file_path)
     {
@@ -155,7 +162,7 @@ int main(int argc, char *argv[])
     initialize(state);
     resources.load(state);
 
-    GameState game_state;
+    GameState game_state(state);
     create_tiles(state, game_state, resources);
 
     if (!resources.idle_texture)
@@ -213,6 +220,8 @@ int main(int argc, char *argv[])
             }
         }
 
+        game_state.mapViewport.x = (game_state.player().position.x + TILE_SIZE / 2) - game_state.mapViewport.w / 2;
+
         #ifdef DEBUG
 
         SDL_SetRenderDrawColor(state.renderer, 57, 255, 20, 255);
@@ -242,7 +251,7 @@ void drawObject(const SDL_State& state, GameState& game_state, GameObject& game_
     float srcX = game_object.currentAnimation != -1
         ? game_object.animations[game_object.currentAnimation].current_frame() * sprite_size : 0.0f;
     SDL_FRect src{srcX, 0, sprite_size, sprite_size};
-    SDL_FRect dest{game_object.position.x, game_object.position.y, sprite_size, sprite_size};
+    SDL_FRect dest{game_object.position.x - game_state.mapViewport.x, game_object.position.y, sprite_size, sprite_size};
     SDL_FlipMode flip_mode = game_object.direction == -1 ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
     SDL_RenderTextureRotated(state.renderer, game_object.texture, &src, &dest, 0, nullptr, flip_mode);
 }
