@@ -31,3 +31,5 @@ target_link_libraries(trench_invasion
         SDL3_image::SDL3_image
         glm::glm
 )
+
+# target_compile_definitions(trench_invasion PRIVATE DEBUG)

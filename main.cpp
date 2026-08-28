@@ -3,6 +3,8 @@
 #include <vector>
 #include <string>
 #include <array>
+#include <expected>
+#include <format>
 
 #include "GameObject.h"
 
@@ -29,7 +31,12 @@ struct GameState
 
     GameState()
     {
-        player_index = 0;
+        player_index = -1;
+    }
+
+    GameObject& player()
+    {
+        return layers[LAYER_INDEX_CHARACTERS][player_index];
     }
 };
 
@@ -128,6 +135,13 @@ void check_collision(
     GameObject& B,
     float delta_time
 );
+void handle_key_input(
+    const SDL_State& state,
+    GameState& game_state,
+    GameObject& game_object,
+    SDL_Scancode key,
+    bool key_down
+);
 
 int main(int argc, char *argv[])
 {
@@ -170,6 +184,16 @@ int main(int argc, char *argv[])
                     state.height = event.window.data2;
                     break;;
                 }
+                case SDL_EVENT_KEY_DOWN:
+                {
+                    handle_key_input(state, game_state, game_state.player(), event.key.scancode, true);
+                    break;
+                }
+                case SDL_EVENT_KEY_UP:
+                {
+                    handle_key_input(state, game_state, game_state.player(), event.key.scancode, false);
+                    break;
+                }
             }
         }
         SDL_SetRenderDrawColor(state.renderer, 20, 10, 30, 255);
@@ -185,7 +209,14 @@ int main(int argc, char *argv[])
             }
         }
 
+        #ifdef DEBUG
 
+        SDL_SetRenderDrawColor(state.renderer, 57, 255, 20, 255);
+        SDL_RenderDebugText(state.renderer, 5, 5, 
+            std::format("State: {}", static_cast<int>(game_state.player().data.player.state)).c_str()
+        );
+
+        #endif
 
         SDL_RenderPresent(state.renderer);
         prev_time = now_time;
@@ -276,7 +307,8 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
         }
     }
     game_object.position += game_object.velocity * delta_time;
-     for(auto& layer: game_state.layers)
+    bool ground_found = false;
+    for(auto& layer: game_state.layers)
     {
         for(GameObject& objB: layer)
         {
@@ -290,7 +322,34 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                     objB,
                     delta_time
                 );
+
+                SDL_FRect sensor {
+                    .x = game_object.position.x + game_object.collider.x,
+                    .y = game_object.position.y + game_object.collider.y + game_object.collider.h,
+                    .w = game_object.collider.w,
+                    .h = 1
+                };
+
+                SDL_FRect rectB {
+                    .x = objB.position.x + objB.collider.x,
+                    .y = objB.position.y + objB.collider.y,
+                    .w = objB.collider.w,
+                    .h = objB.collider.h,
+                };
+
+                if (SDL_HasRectIntersectionFloat(&sensor, &rectB))
+                {
+                    ground_found = true;
+                }
             }
+        }
+    }
+    if (game_object.grounded != ground_found)
+    {
+        game_object.grounded = ground_found;
+        if (game_object.type == ObjectType::player)
+        {
+            game_object.data.player.state = PlayerState::running;
         }
     }
 }
@@ -462,6 +521,7 @@ void create_tiles(SDL_State& state, GameState& game_state, Resources& resources)
                         .h = 26
                     };
                     game_state.layers[LAYER_INDEX_CHARACTERS].push_back(player);
+                    game_state.player_index = game_state.layers[LAYER_INDEX_CHARACTERS].size() - 1;
                     break;
                 }
 
@@ -478,6 +538,42 @@ void create_tiles(SDL_State& state, GameState& game_state, Resources& resources)
                     game_state.layers[LAYER_INDEX_LEVEL].push_back(brick);
                     break;
                 }
+            }
+        }
+    }
+}
+
+void handle_key_input(
+    const SDL_State& state,
+    GameState& game_state,
+    GameObject& game_object,
+    SDL_Scancode key,
+    bool key_down
+)
+{
+    const float JUMP_FORCE = -200.0f;
+    if (game_object.type == ObjectType::player)
+    {
+        switch(game_object.data.player.state)
+        {
+            case PlayerState::idle:
+            {
+                if (key == SDL_SCANCODE_W && key_down)
+                {
+                    game_object.data.player.state = PlayerState::jumping;
+                    game_object.velocity.y += JUMP_FORCE;
+                }
+                break;
+            }
+
+            case PlayerState::running:
+            {
+                if (key == SDL_SCANCODE_W && key_down)
+                {
+                    game_object.data.player.state = PlayerState::jumping;
+                    game_object.velocity.y += JUMP_FORCE;
+                }
+                break;
             }
         }
     }

@@ -49,6 +49,7 @@ struct GameObject
     int currentAnimation;
     SDL_Texture* texture;
     bool has_gravity;
+    bool grounded;
     SDL_FRect collider;
 
     GameObject(): data{.level = LevelData()}, collider{0}
@@ -60,5 +61,6 @@ struct GameObject
         currentAnimation = -1;
         texture = nullptr;
         has_gravity = false;
+        grounded = false;
     }
 };
