@@ -79,6 +79,10 @@ struct Resources
         texture_panel = load_texture(state.renderer, "assets/panel.png");
         texture_ground = load_texture(state.renderer, "assets/ground.png");
         texture_slide = load_texture(state.renderer, "assets/slide.png");
+        texture_bg1 = load_texture(state.renderer, "assets/bg_layer1.png");
+        texture_bg2 = load_texture(state.renderer, "assets/bg_layer2.png");
+        texture_bg3 = load_texture(state.renderer, "assets/bg_layer3.png");
+        texture_bg4 = load_texture(state.renderer, "assets/bg_layer4.png");
     }
 
     void unload()
@@ -209,6 +213,8 @@ int main(int argc, char *argv[])
         }
         SDL_SetRenderDrawColor(state.renderer, 20, 10, 30, 255);
         SDL_RenderClear(state.renderer);
+        SDL_RenderTexture(state.renderer, resources.texture_bg1, nullptr, nullptr);
+
         for (auto& layer: game_state.layers)
         {
             for (GameObject& object: layer)
