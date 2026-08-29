@@ -227,7 +227,7 @@ int main(int argc, char *argv[])
                 {
                     state.width = event.window.data1;
                     state.height = event.window.data2;
-                    break;;
+                    break;
                 }
                 case SDL_EVENT_KEY_DOWN:
                 {
