@@ -417,8 +417,12 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                         0
                     );
                     bullet.animations = resources.bullet_animations;
+                    const float left = 0.4f;
+                    const float right = 24.0f;
+                    const float t = (game_object.direction + 1) / 2.0f;
+                    float lerp = left + right * t;
                     bullet.position = glm::vec2(
-                        game_object.position.x,
+                        game_object.position.x + lerp,
                         game_object.position.y + TILE_SIZE / 2
                     );
                     game_state.bullets.push_back(bullet);
