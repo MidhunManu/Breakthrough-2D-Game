@@ -33,6 +33,7 @@ public:
     void reset_timer()
     {
         m_time = 0;
+        m_time_up = false;
     }
 private:
     float m_length;

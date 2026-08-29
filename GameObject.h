@@ -10,6 +10,7 @@ enum class ObjectType
     player,
     level,
     enemy,
+    bullet,
 };
 
 enum class PlayerState
@@ -19,13 +20,29 @@ enum class PlayerState
     jumping,
 };
 
+enum class BulletState
+{
+    moving,
+    hit,
+    in_active,
+};
+
 struct PlayerData
 {
     PlayerState state;
-    PlayerData()
+    Timer gun_timer;
+    PlayerData(): gun_timer(0.1f)
     {
         state = PlayerState::idle;
     }
+};
+
+struct BulletData
+{
+    BulletState state;
+    BulletData(): state(BulletState::in_active)
+    {
+    };
 };
 
 struct LevelData {};
@@ -36,6 +53,7 @@ union ObjectData
     PlayerData player;
     LevelData level;
     EnemyData enemy;
+    BulletData bullet;
 };
 
 struct GameObject
