@@ -30,7 +30,8 @@ enum class BulletState
 struct PlayerData
 {
     PlayerState state;
-    PlayerData()
+    Timer gun_timer;
+    PlayerData(): gun_timer(0.1f)
     {
         state = PlayerState::idle;
     }

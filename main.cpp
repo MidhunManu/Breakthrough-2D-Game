@@ -301,11 +301,6 @@ int main(int argc, char *argv[])
             drawObject(state, game_state, bullet, bullet.collider.w, bullet.collider.h, delta_time);
         }
 
-        // for (GameObject& bullet: game_state.bullets)
-        // {
-        //     drawObject(state, game_state, bullet, bullet.collider.w, bullet.collider.h, delta_time);
-        // }
-
         for(GameObject& obj: game_state.foreground_tiles)
         {
             SDL_FRect dest
@@ -372,6 +367,9 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
             game_object.direction = current_direction;
         }
 
+        Timer& player_gun_timer = game_object.data.player.gun_timer;
+        player_gun_timer.step(delta_time);
+
         switch (game_object.data.player.state)
         {
             case PlayerState::idle:
@@ -399,6 +397,11 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
 
                 if (state.keys[SDL_SCANCODE_J])
                 {
+                    if (player_gun_timer.is_time_out())
+                    {
+                        player_gun_timer.reset_timer();
+                    }
+
                     GameObject bullet;
                     bullet.direction = game_state.player().direction;
                     bullet.currentAnimation = resources.AN_BULLET_MOVING;
@@ -414,7 +417,10 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                         0
                     );
                     bullet.animations = resources.bullet_animations;
-                    bullet.position = game_object.position;
+                    bullet.position = glm::vec2(
+                        game_object.position.x,
+                        game_object.position.y + TILE_SIZE / 2
+                    );
                     game_state.bullets.push_back(bullet);
                 }
                 game_object.texture = resources.idle_texture;
