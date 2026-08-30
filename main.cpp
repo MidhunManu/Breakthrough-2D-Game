@@ -310,10 +310,13 @@ int main(int argc, char *argv[])
 
         for (GameObject& bullet: game_state.bullets)
         {
-            update(state, game_state,resources, bullet, delta_time);
-            if (bullet.currentAnimation != -1)
-                bullet.animations[bullet.currentAnimation].step(delta_time);
-            drawObject(state, game_state, bullet, bullet.collider.w, bullet.collider.h, delta_time);
+            if (bullet.data.bullet.state != BulletState::in_active)
+            {
+                update(state, game_state,resources, bullet, delta_time);
+                if (bullet.currentAnimation != -1)
+                    bullet.animations[bullet.currentAnimation].step(delta_time);
+                drawObject(state, game_state, bullet, bullet.collider.w, bullet.collider.h, delta_time);
+            }
         }
 
         for(GameObject& obj: game_state.foreground_tiles)
@@ -380,6 +383,7 @@ void drawObject(const SDL_State& state, GameState& game_state, GameObject& game_
 
 void update(const SDL_State& state, GameState& game_state, Resources& resources, GameObject& game_object, float delta_time)
 {
+    float current_direction = 0;
     if (game_object.has_gravity && !game_object.grounded)
     {
         game_object.velocity += glm::vec2(0, 500) * delta_time;
@@ -387,7 +391,6 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
 
     if (game_object.type == ObjectType::player)
     {
-        float current_direction = 0;
         if (state.keys[SDL_SCANCODE_A])
         {
             current_direction--;
@@ -395,10 +398,6 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
         if (state.keys[SDL_SCANCODE_D])
         {
             current_direction++;
-        }
-        if (current_direction)
-        {
-            game_object.direction = current_direction;
         }
 
         Timer& player_gun_timer = game_object.data.player.gun_timer;
@@ -418,30 +417,47 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                 if (player_gun_timer.is_time_out())
                 {
                     player_gun_timer.reset_timer();
-                }
 
-                GameObject bullet;
-                bullet.direction = game_state.player().direction;
-                bullet.currentAnimation = resources.AN_BULLET_MOVING;
-                bullet.texture = resources.texture_bullet;
-                bullet.collider = SDL_FRect{
-                    .x = 0,
-                    .y = 0,
-                    .w = static_cast<float>(resources.texture_bullet->h),
-                    .h = static_cast<float>(resources.texture_bullet->h)};
-                bullet.velocity =
-                    glm::vec2((game_state.player().velocity.x + 600.0f) *
-                                  game_state.player().direction,
-                              0);
-                bullet.animations = resources.bullet_animations;
-                const float left = 0.4f;
-                const float right = 24.0f;
-                const float t = (game_object.direction + 1) / 2.0f;
-                float lerp = left + right * t;
-                bullet.position =
-                    glm::vec2(game_object.position.x + lerp,
-                              game_object.position.y + TILE_SIZE / 2);
-                game_state.bullets.push_back(bullet);
+                    GameObject bullet;
+                    bullet.data.bullet = BulletData();
+                    bullet.type = ObjectType::bullet;
+                    bullet.direction = game_state.player().direction;
+                    bullet.currentAnimation = resources.AN_BULLET_MOVING;
+                    bullet.texture = resources.texture_bullet;
+                    bullet.collider = SDL_FRect{
+                        .x = 0,
+                        .y = 0,
+                        .w = static_cast<float>(resources.texture_bullet->h),
+                        .h = static_cast<float>(resources.texture_bullet->h)};
+                    const int y_variation = 60;
+                    const float y_velocity = SDL_rand(y_variation) - y_variation / 2.0f;
+                    bullet.velocity =
+                        glm::vec2((game_state.player().velocity.x + 600.0f) *
+                                    game_state.player().direction,
+                                y_velocity);
+                    bullet.animations = resources.bullet_animations;
+                    const float left = 0.4f;
+                    const float right = 24.0f;
+                    const float t = (game_object.direction + 1) / 2.0f;
+                    float lerp = left + right * t;
+                    bullet.position =
+                        glm::vec2(game_object.position.x + lerp,
+                                game_object.position.y + TILE_SIZE / 2);
+                    bullet.max_speed_x = 1000.0f;
+                    bool found_inactive = false;
+                    for(int i = 0; i < game_state.bullets.size() && !found_inactive; i++)
+                    {
+                        if (game_state.bullets[i].data.bullet.state == BulletState::in_active)
+                        {
+                            found_inactive = true;
+                            game_state.bullets[i] = bullet;
+                        }
+                    }
+                    if (!found_inactive)
+                    {
+                        game_state.bullets.push_back(bullet);
+                    }
+                }
             }
             else
             {
@@ -528,13 +544,46 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                 break;
             }
         }
-
-        game_object.velocity += current_direction * game_object.acceleration * delta_time;
-        if (std::abs(game_object.velocity.x) > game_object.max_speed_x)
+    }
+    else if (game_object.type == ObjectType::bullet)
+    {
+        switch(game_object.data.bullet.state)
         {
-            game_object.velocity.x = current_direction * game_object.max_speed_x;
+            case BulletState::moving:
+            {
+                if (game_object.position.x - game_state.mapViewport.x < 0 ||
+                    game_object.position.x - game_state.mapViewport.x > state.logW ||
+                    game_object.position.y - game_state.mapViewport.y < 0 ||
+                    game_object.position.y - game_state.mapViewport.y > state.logH
+                )
+                {
+                    game_object.data.bullet.state = BulletState::in_active;
+                }
+                break;
+            }
+
+            case BulletState::hit:
+            {
+                if (game_object.animations[game_object.currentAnimation].is_done())
+                {
+                    game_object.data.bullet.state = BulletState::in_active;
+                }
+                break;
+            }
         }
     }
+
+    if (current_direction)
+    {
+        game_object.direction = current_direction;
+    }
+
+    game_object.velocity += current_direction * game_object.acceleration * delta_time;
+    if (std::abs(game_object.velocity.x) > game_object.max_speed_x)
+    {
+        game_object.velocity.x = current_direction * game_object.max_speed_x;
+    }
+
     game_object.position += game_object.velocity * delta_time;
     bool ground_found = false;
     for(auto& layer: game_state.layers)
@@ -600,38 +649,50 @@ void collision_response(
     float delta_time
 )
 {
+    const auto generic_response = [&]()
+    {
+        bool horizontal_hit = game_objectA.type == ObjectType::bullet || rectC.w < rectC.h;
+
+        if (horizontal_hit)
+        {
+            if (game_objectA.velocity.x > 0) game_objectA.position.x -= rectC.w;
+            else if (game_objectA.velocity.x < 0) game_objectA.position.x += rectC.w;
+            game_objectA.velocity.x = 0;
+        }
+        else
+        {
+            if (game_objectA.velocity.y > 0) game_objectA.position.y -= rectC.h;
+            else if (game_objectA.velocity.y < 0) game_objectA.position.y += rectC.h;
+            game_objectA.velocity.y = 0;
+        }
+    };
+
     if (game_objectA.type == ObjectType::player)
     {
         switch(game_objectB.type)
         {
             case ObjectType::level:
             {
-                if (rectC.w < rectC.h)
-                {
-                    if (game_objectA.velocity.x > 0)
-                    {
-                        game_objectA.position.x -= rectC.w;
-                    }
-                    else if (game_objectA.velocity.x < 0)
-                    {
-                        game_objectA.position.x += rectC.w;
-                    }
-                    game_objectA.velocity.x = 0;
-                }
-                else
-                {
-                    if (game_objectA.velocity.y > 0)
-                    {
-                        game_objectA.position.y -= rectC.h;
-                    }
-                    else if (game_objectA.velocity.y < 0)
-                    {
-                        game_objectA.position.y += rectC.h;
-                    }
-                    game_objectA.velocity.y = 0;
-                }
+                generic_response();
+                break;
             }
-            break;
+        }
+    }
+    else if (game_objectA.type == ObjectType::bullet)
+    {
+        switch(game_objectA.data.bullet.state)
+        {
+            case BulletState::moving:
+            {
+                generic_response();
+                game_objectA.velocity*= 0;
+                game_objectA.data.bullet.state = BulletState::hit;
+                game_objectA.texture = resources.texture_bullet_hit;
+                game_objectA.currentAnimation = resources.AN_BULLET_HIT;
+                break;;
+            }
+            default:
+                break;
         }
     }
 }

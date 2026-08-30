@@ -40,7 +40,7 @@ struct PlayerData
 struct BulletData
 {
     BulletState state;
-    BulletData(): state(BulletState::in_active)
+    BulletData(): state(BulletState::moving)
     {
     };
 };
