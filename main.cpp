@@ -319,9 +319,12 @@ int main(int argc, char *argv[])
         #ifdef DEBUG
 
         SDL_SetRenderDrawColor(state.renderer, 57, 255, 20, 255);
-        SDL_RenderDebugText(state.renderer, 5, 5, 
-            std::format("State: {}", static_cast<int>(game_state.player().data.player.state)).c_str()
-        );
+        SDL_RenderDebugText(
+            state.renderer, 5, 5,
+            std::format("State: {}, B_Size: {}, Grounded: {}",
+                        static_cast<int>(game_state.player().data.player.state),
+                        game_state.bullets.size(), game_state.player().grounded)
+                .c_str());
 
         #endif
 
