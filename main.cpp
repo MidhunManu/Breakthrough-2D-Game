@@ -58,6 +58,9 @@ struct Resources
     const int AN_PLAYER_IDLE = 0;
     const int AN_PLAYER_RUN = 1;
     const int AN_PLAYER_SLIDE = 2;
+    const int AN_PLAYER_SHOOT = 3;
+    const int AN_PLAYER_RUN_SHOOT = 4;
+    const int AN_PLAYER_SLIDE_SHOOT = 5;
     const int AN_BULLET_MOVING = 0;
     const int AN_BULLET_HIT = 1;
     std::vector<Animation> playerAnimations;
@@ -66,7 +69,8 @@ struct Resources
     SDL_Texture* idle_texture, *running_texture;
     SDL_Texture* texture_grass, *texture_panel, *texture_ground, *texture_brick,
     *texture_slide, *texture_bg1, *texture_bg2, *texture_bg3, *texture_bg4,
-    *texture_bullet, *texture_bullet_hit;
+    *texture_bullet, *texture_bullet_hit, *texture_shoot, *texture_run_shoot,
+    *texture_slide_shoot;
 
     SDL_Texture* load_texture(SDL_Renderer* renderer, const std::string& file_path)
     {
@@ -78,13 +82,16 @@ struct Resources
 
     void load(SDL_State& state)
     {
-        playerAnimations.resize(5);
+        playerAnimations.resize(6);
         bullet_animations.resize(2);
         playerAnimations[AN_PLAYER_IDLE] = Animation(8, 1.6f);
         playerAnimations[AN_PLAYER_RUN] = Animation(4, 0.5f);
         playerAnimations[AN_PLAYER_SLIDE] = Animation(1, 1.0f);
+        playerAnimations[AN_PLAYER_SHOOT] = Animation(4, 0.5f);
+        playerAnimations[AN_PLAYER_RUN_SHOOT] = Animation(4, 0.5f);
+        playerAnimations[AN_PLAYER_SLIDE_SHOOT] = Animation(4, 0.5f);
         bullet_animations[AN_BULLET_MOVING] = Animation(4, 0.05f);
-        bullet_animations[AN_BULLET_HIT] = Animation(4, 0.15f);
+        bullet_animations[AN_BULLET_HIT] = Animation(4, 0.15f);        
 
         idle_texture = load_texture(state.renderer, "assets/idle.png");
         running_texture = load_texture(state.renderer, "assets/run.png");
@@ -99,6 +106,9 @@ struct Resources
         texture_bg4 = load_texture(state.renderer, "assets/bg_layer4.png");
         texture_bullet = load_texture(state.renderer, "assets/bullet.png");
         texture_bullet_hit = load_texture(state.renderer, "assets/bullet_hit.png");
+        texture_shoot = load_texture(state.renderer, "assets/shoot.png");
+        texture_slide_shoot = load_texture(state.renderer, "assets/slide_shoot.png");
+        texture_run_shoot = load_texture(state.renderer, "assets/shoot_run.png");
     }
 
     void unload()
@@ -372,10 +382,18 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
 
         Timer& player_gun_timer = game_object.data.player.gun_timer;
         player_gun_timer.step(delta_time);
-        const auto handle_shooting = [&state, &game_state, &resources, &game_object, &player_gun_timer]()
+        const auto handle_shooting = [&state, &game_state, &resources, &game_object, &player_gun_timer]
+        (
+            SDL_Texture* texture,
+            SDL_Texture* shooting_texture,
+            int animation_index,
+            int shooting_animation_index
+        )
         {
             if (state.keys[SDL_SCANCODE_J])
             {
+                game_object.texture = shooting_texture;
+                game_object.currentAnimation = shooting_animation_index;
                 if (player_gun_timer.is_time_out())
                 {
                     player_gun_timer.reset_timer();
@@ -404,6 +422,11 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                               game_object.position.y + TILE_SIZE / 2);
                 game_state.bullets.push_back(bullet);
             }
+            else
+            {
+                game_object.texture = texture;
+                game_object.currentAnimation = animation_index;
+            }
         };
 
         switch (game_object.data.player.state)
@@ -431,9 +454,9 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                     }
                 }
 
-                handle_shooting();
                 game_object.texture = resources.idle_texture;
                 game_object.currentAnimation = resources.AN_PLAYER_IDLE;
+                handle_shooting(resources.idle_texture, resources.texture_shoot, resources.AN_PLAYER_IDLE, resources.AN_PLAYER_SHOOT);
                 break;
             }
 
@@ -448,13 +471,26 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                 {
                     game_object.texture = resources.texture_slide;
                     game_object.currentAnimation = resources.AN_PLAYER_SLIDE;
+
+                    handle_shooting(
+                        resources.texture_slide,
+                        resources.texture_slide_shoot,
+                        resources.AN_PLAYER_SLIDE,
+                        resources.AN_PLAYER_SLIDE_SHOOT
+                    );
                 }
                 else
                 {
                     game_object.texture = resources.running_texture;
                     game_object.currentAnimation = resources.AN_PLAYER_RUN;
+
+                    handle_shooting(
+                        resources.running_texture,
+                        resources.texture_run_shoot,
+                        resources.AN_PLAYER_RUN,
+                        resources.AN_PLAYER_RUN_SHOOT
+                    );
                 }
-                handle_shooting();
                 break;
             }
 
@@ -462,7 +498,12 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
             {
                 game_object.texture = resources.running_texture;
                 game_object.currentAnimation = resources.AN_PLAYER_RUN;
-                handle_shooting();
+                handle_shooting(
+                    resources.running_texture,
+                    resources.texture_run_shoot,
+                    resources.AN_PLAYER_RUN,
+                    resources.AN_PLAYER_RUN_SHOOT
+                );
                 break;
             }
         }
