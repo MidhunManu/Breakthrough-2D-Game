@@ -26,6 +26,11 @@ public:
     {
         m_timer.step(delta_time);
     }
+
+    bool is_done() const
+    {
+        return m_timer.is_time_out();
+    }
 private:
     Timer m_timer;
     int m_frame_count;

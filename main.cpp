@@ -310,10 +310,13 @@ int main(int argc, char *argv[])
 
         for (GameObject& bullet: game_state.bullets)
         {
-            update(state, game_state,resources, bullet, delta_time);
-            if (bullet.currentAnimation != -1)
-                bullet.animations[bullet.currentAnimation].step(delta_time);
-            drawObject(state, game_state, bullet, bullet.collider.w, bullet.collider.h, delta_time);
+            if (bullet.data.bullet.state != BulletState::in_active)
+            {
+                update(state, game_state,resources, bullet, delta_time);
+                if (bullet.currentAnimation != -1)
+                    bullet.animations[bullet.currentAnimation].step(delta_time);
+                drawObject(state, game_state, bullet, bullet.collider.w, bullet.collider.h, delta_time);
+            }
         }
 
         for(GameObject& obj: game_state.foreground_tiles)
@@ -542,13 +545,29 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
     }
     else if (game_object.type == ObjectType::bullet)
     {
-        if (game_object.position.x - game_state.mapViewport.x < 0 ||
-            game_object.position.x - game_state.mapViewport.x > state.logW ||
-            game_object.position.y - game_state.mapViewport.y < 0 ||
-            game_object.position.y - game_state.mapViewport.y > state.logH
-        )
+        switch(game_object.data.bullet.state)
         {
-            game_object.data.bullet.state = BulletState::in_active;
+            case BulletState::moving:
+            {
+                if (game_object.position.x - game_state.mapViewport.x < 0 ||
+                    game_object.position.x - game_state.mapViewport.x > state.logW ||
+                    game_object.position.y - game_state.mapViewport.y < 0 ||
+                    game_object.position.y - game_state.mapViewport.y > state.logH
+                )
+                {
+                    game_object.data.bullet.state = BulletState::in_active;
+                }
+                break;
+            }
+
+            case BulletState::hit:
+            {
+                if (game_object.animations[game_object.currentAnimation].is_done())
+                {
+                    game_object.data.bullet.state = BulletState::in_active;
+                }
+                break;
+            }
         }
     }
 
@@ -664,6 +683,9 @@ void collision_response(
             case BulletState::moving:
             {
                 generic_response();
+                game_objectA.data.bullet.state = BulletState::hit;
+                game_objectA.texture = resources.texture_bullet_hit;
+                game_objectA.currentAnimation = resources.AN_BULLET_HIT;
                 break;;
             }
             default:
