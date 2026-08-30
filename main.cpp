@@ -370,9 +370,10 @@ void drawObject(const SDL_State& state, GameState& game_state, GameObject& game_
             game_object.collider.w,
             game_object.collider.h
         };
-
-        SDL_SetRenderDrawColor(state.renderer, 255, 0, 0, 255);
+        SDL_SetRenderDrawBlendMode(state.renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(state.renderer, 255, 0, 0, 150);
         SDL_RenderFillRect(state.renderer, &rectA);
+        SDL_SetRenderDrawBlendMode(state.renderer, SDL_BLENDMODE_NONE);
     }
     #endif
 }
