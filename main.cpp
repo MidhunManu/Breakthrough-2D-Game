@@ -552,25 +552,28 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                     delta_time
                 );
 
-                SDL_FRect sensor {
-                    .x = game_object.position.x + game_object.collider.x,
-                    .y = game_object.position.y + game_object.collider.y + game_object.collider.h,
-                    .w = game_object.collider.w,
-                    .h = 1
-                };
-
-                SDL_FRect rectB {
-                    .x = objB.position.x + objB.collider.x,
-                    .y = objB.position.y + objB.collider.y,
-                    .w = objB.collider.w,
-                    .h = objB.collider.h,
-                };
-
-                SDL_FRect rectC {0};
-
-                if (SDL_GetRectIntersectionFloat(&sensor, &rectB, &rectC))
+                if (objB.type == ObjectType::level)
                 {
-                    ground_found = true;
+                    SDL_FRect sensor {
+                        .x = game_object.position.x + game_object.collider.x,
+                        .y = game_object.position.y + game_object.collider.y + game_object.collider.h,
+                        .w = game_object.collider.w,
+                        .h = 1
+                    };
+
+                    SDL_FRect rectB {
+                        .x = objB.position.x + objB.collider.x,
+                        .y = objB.position.y + objB.collider.y,
+                        .w = objB.collider.w,
+                        .h = objB.collider.h,
+                    };
+
+                    SDL_FRect rectC {0};
+
+                    if (SDL_GetRectIntersectionFloat(&sensor, &rectB, &rectC))
+                    {
+                        ground_found = true;
+                    }
                 }
             }
         }
