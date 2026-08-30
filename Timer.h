@@ -5,14 +5,16 @@ public:
     Timer(float length)
         : m_length(length), m_time(0), m_time_up(false) {};
 
-    void step(float delta_time)
+    bool step(float delta_time)
     {
         m_time += delta_time;
         if (m_time >= m_length)
         {
             m_time -= m_length;
             m_time_up = true;
+            return true;
         }
+        return false;
     }
 
     [[nodiscard]] bool is_time_out() const

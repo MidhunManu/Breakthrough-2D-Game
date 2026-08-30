@@ -27,6 +27,13 @@ enum class BulletState
     in_active,
 };
 
+enum class EnemyState
+{
+    alive,
+    damaged,
+    dead,
+};
+
 struct PlayerData
 {
     PlayerState state;
@@ -46,7 +53,15 @@ struct BulletData
 };
 
 struct LevelData {};
-struct EnemyData {};
+struct EnemyData {
+    EnemyState state;
+    Timer damaged_state_timer;
+    int health_points;
+
+    EnemyData(): state(EnemyState::alive), damaged_state_timer(0.5f) {
+        health_points = 100;
+    };
+};
 
 union ObjectData
 {
@@ -69,8 +84,11 @@ struct GameObject
     bool has_gravity;
     bool grounded;
     SDL_FRect collider;
+    Timer flash_timer;
+    bool should_flash;
+    int sprite_frame;
 
-    GameObject(): data{.level = LevelData()}, collider{0}
+    GameObject(): data{.level = LevelData()}, collider{0}, flash_timer(0.05f)
     {
         type = ObjectType::level;
         max_speed_x = 0;
@@ -80,5 +98,7 @@ struct GameObject
         texture = nullptr;
         has_gravity = false;
         grounded = false;
+        should_flash = false;
+        sprite_frame = 1;
     }
 };
