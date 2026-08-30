@@ -429,10 +429,12 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                         .y = 0,
                         .w = static_cast<float>(resources.texture_bullet->h),
                         .h = static_cast<float>(resources.texture_bullet->h)};
+                    const int y_variation = 60;
+                    const float y_velocity = SDL_rand(y_variation) - y_variation / 2.0f;
                     bullet.velocity =
                         glm::vec2((game_state.player().velocity.x + 600.0f) *
                                     game_state.player().direction,
-                                0);
+                                y_velocity);
                     bullet.animations = resources.bullet_animations;
                     const float left = 0.4f;
                     const float right = 24.0f;
