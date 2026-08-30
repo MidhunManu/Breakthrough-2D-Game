@@ -64,14 +64,18 @@ struct Resources
     const int AN_PLAYER_SLIDE_SHOOT = 5;
     const int AN_BULLET_MOVING = 0;
     const int AN_BULLET_HIT = 1;
+    const int AN_ENEMY = 0;
+    const int AN_ENEMY_HIT = 1;
+    const int AN_ENEMY_DIE = 2;
     std::vector<Animation> playerAnimations;
     std::vector<Animation> bullet_animations;
+    std::vector<Animation> enemy_animations;
     std::vector<SDL_Texture*> textures;
     SDL_Texture* idle_texture, *running_texture;
     SDL_Texture* texture_grass, *texture_panel, *texture_ground, *texture_brick,
     *texture_slide, *texture_bg1, *texture_bg2, *texture_bg3, *texture_bg4,
     *texture_bullet, *texture_bullet_hit, *texture_shoot, *texture_run_shoot,
-    *texture_slide_shoot;
+    *texture_slide_shoot, *texture_enemy, *texture_enemy_hit, *texture_enemy_die;
 
     SDL_Texture* load_texture(SDL_Renderer* renderer, const std::string& file_path)
     {
@@ -85,6 +89,7 @@ struct Resources
     {
         playerAnimations.resize(6);
         bullet_animations.resize(2);
+        enemy_animations.resize(3);
         playerAnimations[AN_PLAYER_IDLE] = Animation(8, 1.6f);
         playerAnimations[AN_PLAYER_RUN] = Animation(4, 0.5f);
         playerAnimations[AN_PLAYER_SLIDE] = Animation(1, 1.0f);
@@ -92,7 +97,10 @@ struct Resources
         playerAnimations[AN_PLAYER_RUN_SHOOT] = Animation(4, 0.5f);
         playerAnimations[AN_PLAYER_SLIDE_SHOOT] = Animation(4, 0.5f);
         bullet_animations[AN_BULLET_MOVING] = Animation(4, 0.05f);
-        bullet_animations[AN_BULLET_HIT] = Animation(4, 0.15f);        
+        bullet_animations[AN_BULLET_HIT] = Animation(4, 0.15f);
+        enemy_animations[AN_ENEMY] = Animation(8, 1.0f);
+        enemy_animations[AN_ENEMY_HIT] = Animation(8, 1.0f);
+        enemy_animations[AN_ENEMY_DIE] = Animation(18, 2.0f);
 
         idle_texture = load_texture(state.renderer, "assets/idle.png");
         running_texture = load_texture(state.renderer, "assets/run.png");
@@ -110,6 +118,9 @@ struct Resources
         texture_shoot = load_texture(state.renderer, "assets/shoot.png");
         texture_slide_shoot = load_texture(state.renderer, "assets/slide_shoot.png");
         texture_run_shoot = load_texture(state.renderer, "assets/shoot_run.png");
+        texture_enemy = load_texture(state.renderer, "assets/enemy.png");
+        texture_enemy_hit = load_texture(state.renderer, "assets/enemy_hit.png");
+        texture_enemy_die = load_texture(state.renderer, "assets/enemy_die.png");
     }
 
     void unload()
@@ -362,7 +373,21 @@ void drawObject(const SDL_State& state, GameState& game_state, GameObject& game_
     SDL_FRect src{srcX, 0, width, height};
     SDL_FRect dest{game_object.position.x - game_state.mapViewport.x, game_object.position.y, width, height};
     SDL_FlipMode flip_mode = game_object.direction == -1 ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    SDL_RenderTextureRotated(state.renderer, game_object.texture, &src, &dest, 0, nullptr, flip_mode);
+    if (!game_object.should_flash)
+    {
+        SDL_RenderTextureRotated(state.renderer, game_object.texture, &src, &dest, 0, nullptr, flip_mode);
+    }
+    else
+    {
+        SDL_SetTextureColorModFloat(game_object.texture, 2.5f, 1.0f, 1.0f);
+        SDL_RenderTextureRotated(state.renderer, game_object.texture, &src, &dest, 0, nullptr, flip_mode);
+        SDL_SetTextureColorModFloat(game_object.texture, 1.0f, 1.0f, 1.0f);
+
+        if (game_object.flash_timer.step(delta_time))
+        {
+            game_object.should_flash = false;
+        }
+    }
 
     #ifdef DEBUG
     if (debug_mode)
@@ -572,6 +597,21 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
             }
         }
     }
+    else if (game_object.type == ObjectType::enemy)
+    {
+        switch(game_object.data.enemy.state)
+        {
+            case EnemyState::damaged:
+            {
+                if (game_object.data.enemy.damaged_state_timer.step(delta_time))
+                {
+                    game_object.data.enemy.state = EnemyState::alive;
+                    game_object.texture = resources.texture_enemy;
+                    game_object.currentAnimation = resources.AN_ENEMY;
+                }
+            }
+        }
+    }
 
     if (current_direction)
     {
@@ -680,15 +720,49 @@ void collision_response(
     }
     else if (game_objectA.type == ObjectType::bullet)
     {
+        bool pass_through = false;
         switch(game_objectA.data.bullet.state)
         {
             case BulletState::moving:
             {
-                generic_response();
-                game_objectA.velocity*= 0;
-                game_objectA.data.bullet.state = BulletState::hit;
-                game_objectA.texture = resources.texture_bullet_hit;
-                game_objectA.currentAnimation = resources.AN_BULLET_HIT;
+                switch(game_objectB.type)
+                {
+                    case ObjectType::enemy:
+                    {
+                        if (game_objectB.data.enemy.state != EnemyState::dead)
+                        {
+                            game_objectB.direction = -game_objectA.direction;
+                            game_objectB.should_flash = true;
+                            game_objectB.flash_timer.reset_timer();
+                            game_objectB.texture = resources.texture_enemy_hit;
+                            game_objectB.currentAnimation = resources.AN_ENEMY_HIT;
+                            game_objectB.data.enemy.state = EnemyState::damaged;
+                            game_objectB.data.enemy.health_points -= 10;
+    
+                            if (game_objectB.data.enemy.health_points <= 0)
+                            {
+                                game_objectB.data.enemy.state = EnemyState::dead;
+                                game_objectB.texture = resources.texture_enemy_die;
+                                game_objectB.currentAnimation = resources.AN_ENEMY_DIE;
+                            } 
+                        }
+                        else
+                        {
+                            pass_through = true;
+                        }
+                        break;
+                    }
+                }
+
+                if (!pass_through)
+                {
+                    generic_response();
+                    game_objectA.velocity*= 0;
+                    game_objectA.data.bullet.state = BulletState::hit;
+                    game_objectA.texture = resources.texture_bullet_hit;
+                    game_objectA.currentAnimation = resources.AN_BULLET_HIT;
+                }
+
                 break;;
             }
             default:
@@ -751,9 +825,9 @@ void create_tiles(SDL_State& state, GameState& game_state, Resources& resources)
      */
     short map[MAP_ROWS][MAP_COLS] = {
         {0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-        {0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,2,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0},
+        {0,0,0,0,0,0,0,0,0,3,0,0,0,2,2,0,0,0,0,0,0,0,2,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0},
         {0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0},
-        {0,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {0,2,2,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
         {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
     };
 
@@ -815,6 +889,18 @@ void create_tiles(SDL_State& state, GameState& game_state, Resources& resources)
 
                     case 3:
                     {
+                        GameObject enemy = create_object(r, c, resources.texture_enemy, ObjectType::enemy);
+                        enemy.data.enemy = EnemyData();
+                        enemy.texture = resources.texture_enemy;
+                        enemy.animations = resources.enemy_animations;
+                        enemy.currentAnimation = resources.AN_ENEMY;
+                        enemy.collider = SDL_FRect {
+                            .x = 10,
+                            .y = 4,
+                            .w = 12,
+                            .h = 28
+                        };
+                        game_state.layers[LAYER_INDEX_CHARACTERS].push_back(enemy);
                         break;
                     }
 
