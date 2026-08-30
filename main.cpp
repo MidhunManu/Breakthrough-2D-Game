@@ -685,6 +685,7 @@ void collision_response(
             case BulletState::moving:
             {
                 generic_response();
+                game_objectA.velocity*= 0;
                 game_objectA.data.bullet.state = BulletState::hit;
                 game_objectA.texture = resources.texture_bullet_hit;
                 game_objectA.currentAnimation = resources.AN_BULLET_HIT;
