@@ -24,6 +24,7 @@ const int MAP_ROWS = 5;
 const int MAP_COLS = 50;
 const int TILE_SIZE = 32;
 const float MAX_DELTA_TIME = 1.0f / 30.0f;
+bool debug_mode = false;
 
 struct GameState
 {
@@ -242,6 +243,10 @@ int main(int argc, char *argv[])
                 case SDL_EVENT_KEY_DOWN:
                 {
                     handle_key_input(state, game_state, game_state.player(), event.key.scancode, true);
+                    if (event.key.scancode == SDL_SCANCODE_F1)
+                    {
+                        debug_mode = !debug_mode;
+                    }
                     break;
                 }
                 case SDL_EVENT_KEY_UP:
@@ -355,6 +360,21 @@ void drawObject(const SDL_State& state, GameState& game_state, GameObject& game_
     SDL_FRect dest{game_object.position.x - game_state.mapViewport.x, game_object.position.y, width, height};
     SDL_FlipMode flip_mode = game_object.direction == -1 ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
     SDL_RenderTextureRotated(state.renderer, game_object.texture, &src, &dest, 0, nullptr, flip_mode);
+
+    #ifdef DEBUG
+    if (debug_mode)
+    {
+        SDL_FRect rectA {
+            game_object.position.x + game_object.collider.x - game_state.mapViewport.x,
+            game_object.position.y + game_object.collider.y,
+            game_object.collider.w,
+            game_object.collider.h
+        };
+
+        SDL_SetRenderDrawColor(state.renderer, 255, 0, 0, 255);
+        SDL_RenderFillRect(state.renderer, &rectA);
+    }
+    #endif
 }
 
 void update(const SDL_State& state, GameState& game_state, Resources& resources, GameObject& game_object, float delta_time)
