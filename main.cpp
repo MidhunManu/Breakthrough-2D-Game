@@ -566,7 +566,9 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                     .h = objB.collider.h,
                 };
 
-                if (SDL_HasRectIntersectionFloat(&sensor, &rectB))
+                SDL_FRect rectC {0};
+
+                if (SDL_GetRectIntersectionFloat(&sensor, &rectB, &rectC))
                 {
                     ground_found = true;
                 }
