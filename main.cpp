@@ -380,6 +380,7 @@ void drawObject(const SDL_State& state, GameState& game_state, GameObject& game_
 
 void update(const SDL_State& state, GameState& game_state, Resources& resources, GameObject& game_object, float delta_time)
 {
+    float current_direction = 0;
     if (game_object.has_gravity && !game_object.grounded)
     {
         game_object.velocity += glm::vec2(0, 500) * delta_time;
@@ -387,7 +388,6 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
 
     if (game_object.type == ObjectType::player)
     {
-        float current_direction = 0;
         if (state.keys[SDL_SCANCODE_A])
         {
             current_direction--;
@@ -395,10 +395,6 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
         if (state.keys[SDL_SCANCODE_D])
         {
             current_direction++;
-        }
-        if (current_direction)
-        {
-            game_object.direction = current_direction;
         }
 
         Timer& player_gun_timer = game_object.data.player.gun_timer;
@@ -441,6 +437,7 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                 bullet.position =
                     glm::vec2(game_object.position.x + lerp,
                               game_object.position.y + TILE_SIZE / 2);
+                bullet.max_speed_x = 1000.0f;
                 game_state.bullets.push_back(bullet);
             }
             else
@@ -528,13 +525,19 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                 break;
             }
         }
-
-        game_object.velocity += current_direction * game_object.acceleration * delta_time;
-        if (std::abs(game_object.velocity.x) > game_object.max_speed_x)
-        {
-            game_object.velocity.x = current_direction * game_object.max_speed_x;
-        }
     }
+
+    if (current_direction)
+    {
+        game_object.direction = current_direction;
+    }
+
+    game_object.velocity += current_direction * game_object.acceleration * delta_time;
+    if (std::abs(game_object.velocity.x) > game_object.max_speed_x)
+    {
+        game_object.velocity.x = current_direction * game_object.max_speed_x;
+    }
+
     game_object.position += game_object.velocity * delta_time;
     bool ground_found = false;
     for(auto& layer: game_state.layers)
