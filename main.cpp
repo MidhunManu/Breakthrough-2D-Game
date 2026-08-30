@@ -24,6 +24,7 @@ const int MAP_ROWS = 5;
 const int MAP_COLS = 50;
 const int TILE_SIZE = 32;
 const float MAX_DELTA_TIME = 1.0f / 30.0f;
+bool debug_mode = false;
 
 struct GameState
 {
@@ -58,6 +59,9 @@ struct Resources
     const int AN_PLAYER_IDLE = 0;
     const int AN_PLAYER_RUN = 1;
     const int AN_PLAYER_SLIDE = 2;
+    const int AN_PLAYER_SHOOT = 3;
+    const int AN_PLAYER_RUN_SHOOT = 4;
+    const int AN_PLAYER_SLIDE_SHOOT = 5;
     const int AN_BULLET_MOVING = 0;
     const int AN_BULLET_HIT = 1;
     std::vector<Animation> playerAnimations;
@@ -66,7 +70,8 @@ struct Resources
     SDL_Texture* idle_texture, *running_texture;
     SDL_Texture* texture_grass, *texture_panel, *texture_ground, *texture_brick,
     *texture_slide, *texture_bg1, *texture_bg2, *texture_bg3, *texture_bg4,
-    *texture_bullet, *texture_bullet_hit;
+    *texture_bullet, *texture_bullet_hit, *texture_shoot, *texture_run_shoot,
+    *texture_slide_shoot;
 
     SDL_Texture* load_texture(SDL_Renderer* renderer, const std::string& file_path)
     {
@@ -78,13 +83,16 @@ struct Resources
 
     void load(SDL_State& state)
     {
-        playerAnimations.resize(5);
+        playerAnimations.resize(6);
         bullet_animations.resize(2);
         playerAnimations[AN_PLAYER_IDLE] = Animation(8, 1.6f);
         playerAnimations[AN_PLAYER_RUN] = Animation(4, 0.5f);
         playerAnimations[AN_PLAYER_SLIDE] = Animation(1, 1.0f);
+        playerAnimations[AN_PLAYER_SHOOT] = Animation(4, 0.5f);
+        playerAnimations[AN_PLAYER_RUN_SHOOT] = Animation(4, 0.5f);
+        playerAnimations[AN_PLAYER_SLIDE_SHOOT] = Animation(4, 0.5f);
         bullet_animations[AN_BULLET_MOVING] = Animation(4, 0.05f);
-        bullet_animations[AN_BULLET_HIT] = Animation(4, 0.15f);
+        bullet_animations[AN_BULLET_HIT] = Animation(4, 0.15f);        
 
         idle_texture = load_texture(state.renderer, "assets/idle.png");
         running_texture = load_texture(state.renderer, "assets/run.png");
@@ -99,6 +107,9 @@ struct Resources
         texture_bg4 = load_texture(state.renderer, "assets/bg_layer4.png");
         texture_bullet = load_texture(state.renderer, "assets/bullet.png");
         texture_bullet_hit = load_texture(state.renderer, "assets/bullet_hit.png");
+        texture_shoot = load_texture(state.renderer, "assets/shoot.png");
+        texture_slide_shoot = load_texture(state.renderer, "assets/slide_shoot.png");
+        texture_run_shoot = load_texture(state.renderer, "assets/shoot_run.png");
     }
 
     void unload()
@@ -232,6 +243,10 @@ int main(int argc, char *argv[])
                 case SDL_EVENT_KEY_DOWN:
                 {
                     handle_key_input(state, game_state, game_state.player(), event.key.scancode, true);
+                    if (event.key.scancode == SDL_SCANCODE_F1)
+                    {
+                        debug_mode = !debug_mode;
+                    }
                     break;
                 }
                 case SDL_EVENT_KEY_UP:
@@ -319,9 +334,12 @@ int main(int argc, char *argv[])
         #ifdef DEBUG
 
         SDL_SetRenderDrawColor(state.renderer, 57, 255, 20, 255);
-        SDL_RenderDebugText(state.renderer, 5, 5, 
-            std::format("State: {}", static_cast<int>(game_state.player().data.player.state)).c_str()
-        );
+        SDL_RenderDebugText(
+            state.renderer, 5, 5,
+            std::format("State: {}, B_Size: {}, Grounded: {}",
+                        static_cast<int>(game_state.player().data.player.state),
+                        game_state.bullets.size(), game_state.player().grounded)
+                .c_str());
 
         #endif
 
@@ -342,11 +360,27 @@ void drawObject(const SDL_State& state, GameState& game_state, GameObject& game_
     SDL_FRect dest{game_object.position.x - game_state.mapViewport.x, game_object.position.y, width, height};
     SDL_FlipMode flip_mode = game_object.direction == -1 ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
     SDL_RenderTextureRotated(state.renderer, game_object.texture, &src, &dest, 0, nullptr, flip_mode);
+
+    #ifdef DEBUG
+    if (debug_mode)
+    {
+        SDL_FRect rectA {
+            game_object.position.x + game_object.collider.x - game_state.mapViewport.x,
+            game_object.position.y + game_object.collider.y,
+            game_object.collider.w,
+            game_object.collider.h
+        };
+        SDL_SetRenderDrawBlendMode(state.renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(state.renderer, 255, 0, 0, 150);
+        SDL_RenderFillRect(state.renderer, &rectA);
+        SDL_SetRenderDrawBlendMode(state.renderer, SDL_BLENDMODE_NONE);
+    }
+    #endif
 }
 
 void update(const SDL_State& state, GameState& game_state, Resources& resources, GameObject& game_object, float delta_time)
 {
-    if (game_object.has_gravity)
+    if (game_object.has_gravity && !game_object.grounded)
     {
         game_object.velocity += glm::vec2(0, 500) * delta_time;
     }
@@ -369,6 +403,52 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
 
         Timer& player_gun_timer = game_object.data.player.gun_timer;
         player_gun_timer.step(delta_time);
+        const auto handle_shooting = [&state, &game_state, &resources, &game_object, &player_gun_timer]
+        (
+            SDL_Texture* texture,
+            SDL_Texture* shooting_texture,
+            int animation_index,
+            int shooting_animation_index
+        )
+        {
+            if (state.keys[SDL_SCANCODE_J])
+            {
+                game_object.texture = shooting_texture;
+                game_object.currentAnimation = shooting_animation_index;
+                if (player_gun_timer.is_time_out())
+                {
+                    player_gun_timer.reset_timer();
+                }
+
+                GameObject bullet;
+                bullet.direction = game_state.player().direction;
+                bullet.currentAnimation = resources.AN_BULLET_MOVING;
+                bullet.texture = resources.texture_bullet;
+                bullet.collider = SDL_FRect{
+                    .x = 0,
+                    .y = 0,
+                    .w = static_cast<float>(resources.texture_bullet->h),
+                    .h = static_cast<float>(resources.texture_bullet->h)};
+                bullet.velocity =
+                    glm::vec2((game_state.player().velocity.x + 600.0f) *
+                                  game_state.player().direction,
+                              0);
+                bullet.animations = resources.bullet_animations;
+                const float left = 0.4f;
+                const float right = 24.0f;
+                const float t = (game_object.direction + 1) / 2.0f;
+                float lerp = left + right * t;
+                bullet.position =
+                    glm::vec2(game_object.position.x + lerp,
+                              game_object.position.y + TILE_SIZE / 2);
+                game_state.bullets.push_back(bullet);
+            }
+            else
+            {
+                game_object.texture = texture;
+                game_object.currentAnimation = animation_index;
+            }
+        };
 
         switch (game_object.data.player.state)
         {
@@ -395,40 +475,9 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                     }
                 }
 
-                if (state.keys[SDL_SCANCODE_J])
-                {
-                    if (player_gun_timer.is_time_out())
-                    {
-                        player_gun_timer.reset_timer();
-                    }
-
-                    GameObject bullet;
-                    bullet.direction = game_state.player().direction;
-                    bullet.currentAnimation = resources.AN_BULLET_MOVING;
-                    bullet.texture = resources.texture_bullet;
-                    bullet.collider = SDL_FRect {
-                        .x = 0,
-                        .y = 0,
-                        .w = static_cast<float>(resources.texture_bullet->h),
-                        .h = static_cast<float>(resources.texture_bullet->h)
-                    };
-                    bullet.velocity = glm::vec2(
-                        (game_state.player().velocity.x + 600.0f) * game_state.player().direction,
-                        0
-                    );
-                    bullet.animations = resources.bullet_animations;
-                    const float left = 0.4f;
-                    const float right = 24.0f;
-                    const float t = (game_object.direction + 1) / 2.0f;
-                    float lerp = left + right * t;
-                    bullet.position = glm::vec2(
-                        game_object.position.x + lerp,
-                        game_object.position.y + TILE_SIZE / 2
-                    );
-                    game_state.bullets.push_back(bullet);
-                }
                 game_object.texture = resources.idle_texture;
                 game_object.currentAnimation = resources.AN_PLAYER_IDLE;
+                handle_shooting(resources.idle_texture, resources.texture_shoot, resources.AN_PLAYER_IDLE, resources.AN_PLAYER_SHOOT);
                 break;
             }
 
@@ -443,11 +492,25 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                 {
                     game_object.texture = resources.texture_slide;
                     game_object.currentAnimation = resources.AN_PLAYER_SLIDE;
+
+                    handle_shooting(
+                        resources.texture_slide,
+                        resources.texture_slide_shoot,
+                        resources.AN_PLAYER_SLIDE,
+                        resources.AN_PLAYER_SLIDE_SHOOT
+                    );
                 }
                 else
                 {
                     game_object.texture = resources.running_texture;
                     game_object.currentAnimation = resources.AN_PLAYER_RUN;
+
+                    handle_shooting(
+                        resources.running_texture,
+                        resources.texture_run_shoot,
+                        resources.AN_PLAYER_RUN,
+                        resources.AN_PLAYER_RUN_SHOOT
+                    );
                 }
                 break;
             }
@@ -456,6 +519,12 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
             {
                 game_object.texture = resources.running_texture;
                 game_object.currentAnimation = resources.AN_PLAYER_RUN;
+                handle_shooting(
+                    resources.running_texture,
+                    resources.texture_run_shoot,
+                    resources.AN_PLAYER_RUN,
+                    resources.AN_PLAYER_RUN_SHOOT
+                );
                 break;
             }
         }
@@ -483,23 +552,28 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                     delta_time
                 );
 
-                SDL_FRect sensor {
-                    .x = game_object.position.x + game_object.collider.x,
-                    .y = game_object.position.y + game_object.collider.y + game_object.collider.h,
-                    .w = game_object.collider.w,
-                    .h = 1
-                };
-
-                SDL_FRect rectB {
-                    .x = objB.position.x + objB.collider.x,
-                    .y = objB.position.y + objB.collider.y,
-                    .w = objB.collider.w,
-                    .h = objB.collider.h,
-                };
-
-                if (SDL_HasRectIntersectionFloat(&sensor, &rectB))
+                if (objB.type == ObjectType::level)
                 {
-                    ground_found = true;
+                    SDL_FRect sensor {
+                        .x = game_object.position.x + game_object.collider.x,
+                        .y = game_object.position.y + game_object.collider.y + game_object.collider.h,
+                        .w = game_object.collider.w,
+                        .h = 1
+                    };
+
+                    SDL_FRect rectB {
+                        .x = objB.position.x + objB.collider.x,
+                        .y = objB.position.y + objB.collider.y,
+                        .w = objB.collider.w,
+                        .h = objB.collider.h,
+                    };
+
+                    SDL_FRect rectC {0};
+
+                    if (SDL_GetRectIntersectionFloat(&sensor, &rectB, &rectC))
+                    {
+                        ground_found = true;
+                    }
                 }
             }
         }
