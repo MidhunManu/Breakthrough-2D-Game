@@ -630,61 +630,21 @@ void collision_response(
 {
     const auto generic_response = [&]()
     {
-        if (rectC.w < rectC.h)
+        bool horizontal_hit = game_objectA.type == ObjectType::bullet || rectC.w < rectC.h;
+
+        if (horizontal_hit)
         {
-            if (game_objectA.velocity.x > 0)
-            {
-                game_objectA.position.x -= rectC.w;
-            }
-            else if (game_objectA.velocity.x < 0)
-            {
-                game_objectA.position.x += rectC.w;
-            }
+            if (game_objectA.velocity.x > 0) game_objectA.position.x -= rectC.w;
+            else if (game_objectA.velocity.x < 0) game_objectA.position.x += rectC.w;
             game_objectA.velocity.x = 0;
         }
         else
         {
-            if (game_objectA.velocity.y > 0)
-            {
-                game_objectA.position.y -= rectC.h;
-            }
-            else if (game_objectA.velocity.y < 0)
-            {
-                game_objectA.position.y += rectC.h;
-            }
+            if (game_objectA.velocity.y > 0) game_objectA.position.y -= rectC.h;
+            else if (game_objectA.velocity.y < 0) game_objectA.position.y += rectC.h;
             game_objectA.velocity.y = 0;
         }
     };
-
-    // const auto generic_response = [&]()
-    // {
-    //     bool horizontal_hit = game_objectA.type == ObjectType::bullet || rectC.w < rectC.h;
-
-    //     if (horizontal_hit)
-    //     {
-    //         if (game_objectA.velocity.x > 0)
-    //         {
-    //             game_objectA.position.x -= rectC.w;
-    //         }
-    //         else if (game_objectA.velocity.x < 0)
-    //         {
-    //             game_objectA.position.x += rectC.w;
-    //         }
-    //         game_objectA.velocity.x = 0;
-    //     }
-    //     else
-    //     {
-    //         if (game_objectA.velocity.y > 0)
-    //         {
-    //             game_objectA.position.y -= rectC.h;
-    //         }
-    //         else if (game_objectA.velocity.y < 0)
-    //         {
-    //             game_objectA.position.y += rectC.h;
-    //         }
-    //         game_objectA.velocity.y = 0;
-    //     }
-    // };
 
     if (game_objectA.type == ObjectType::player)
     {
@@ -699,26 +659,15 @@ void collision_response(
     }
     else if (game_objectA.type == ObjectType::bullet)
     {
-        switch (game_objectB.type)
+        switch(game_objectA.data.bullet.state)
         {
-        case ObjectType::level:
-        {
-            switch (game_objectA.data.bullet.state)
-            {
             case BulletState::moving:
             {
-                if (game_objectA.velocity.x > 0)
-                    game_objectA.position.x -= rectC.w;
-                else if (game_objectA.velocity.x < 0)
-                    game_objectA.position.x += rectC.w;
-                game_objectA.velocity.x = 0;
+                generic_response();
+                break;;
+            }
+            default:
                 break;
-            }
-            }
-            break;
-        }
-        default:
-            break;
         }
     }
 }
