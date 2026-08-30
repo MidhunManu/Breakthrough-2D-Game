@@ -372,6 +372,39 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
 
         Timer& player_gun_timer = game_object.data.player.gun_timer;
         player_gun_timer.step(delta_time);
+        const auto handle_shooting = [&state, &game_state, &resources, &game_object, &player_gun_timer]()
+        {
+            if (state.keys[SDL_SCANCODE_J])
+            {
+                if (player_gun_timer.is_time_out())
+                {
+                    player_gun_timer.reset_timer();
+                }
+
+                GameObject bullet;
+                bullet.direction = game_state.player().direction;
+                bullet.currentAnimation = resources.AN_BULLET_MOVING;
+                bullet.texture = resources.texture_bullet;
+                bullet.collider = SDL_FRect{
+                    .x = 0,
+                    .y = 0,
+                    .w = static_cast<float>(resources.texture_bullet->h),
+                    .h = static_cast<float>(resources.texture_bullet->h)};
+                bullet.velocity =
+                    glm::vec2((game_state.player().velocity.x + 600.0f) *
+                                  game_state.player().direction,
+                              0);
+                bullet.animations = resources.bullet_animations;
+                const float left = 0.4f;
+                const float right = 24.0f;
+                const float t = (game_object.direction + 1) / 2.0f;
+                float lerp = left + right * t;
+                bullet.position =
+                    glm::vec2(game_object.position.x + lerp,
+                              game_object.position.y + TILE_SIZE / 2);
+                game_state.bullets.push_back(bullet);
+            }
+        };
 
         switch (game_object.data.player.state)
         {
@@ -398,38 +431,7 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                     }
                 }
 
-                if (state.keys[SDL_SCANCODE_J])
-                {
-                    if (player_gun_timer.is_time_out())
-                    {
-                        player_gun_timer.reset_timer();
-                    }
-
-                    GameObject bullet;
-                    bullet.direction = game_state.player().direction;
-                    bullet.currentAnimation = resources.AN_BULLET_MOVING;
-                    bullet.texture = resources.texture_bullet;
-                    bullet.collider = SDL_FRect {
-                        .x = 0,
-                        .y = 0,
-                        .w = static_cast<float>(resources.texture_bullet->h),
-                        .h = static_cast<float>(resources.texture_bullet->h)
-                    };
-                    bullet.velocity = glm::vec2(
-                        (game_state.player().velocity.x + 600.0f) * game_state.player().direction,
-                        0
-                    );
-                    bullet.animations = resources.bullet_animations;
-                    const float left = 0.4f;
-                    const float right = 24.0f;
-                    const float t = (game_object.direction + 1) / 2.0f;
-                    float lerp = left + right * t;
-                    bullet.position = glm::vec2(
-                        game_object.position.x + lerp,
-                        game_object.position.y + TILE_SIZE / 2
-                    );
-                    game_state.bullets.push_back(bullet);
-                }
+                handle_shooting();
                 game_object.texture = resources.idle_texture;
                 game_object.currentAnimation = resources.AN_PLAYER_IDLE;
                 break;
@@ -452,6 +454,7 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
                     game_object.texture = resources.running_texture;
                     game_object.currentAnimation = resources.AN_PLAYER_RUN;
                 }
+                handle_shooting();
                 break;
             }
 
@@ -459,6 +462,7 @@ void update(const SDL_State& state, GameState& game_state, Resources& resources,
             {
                 game_object.texture = resources.running_texture;
                 game_object.currentAnimation = resources.AN_PLAYER_RUN;
+                handle_shooting();
                 break;
             }
         }
