@@ -380,7 +380,7 @@ void drawObject(const SDL_State& state, GameState& game_state, GameObject& game_
 
 void update(const SDL_State& state, GameState& game_state, Resources& resources, GameObject& game_object, float delta_time)
 {
-    if (game_object.has_gravity)
+    if (game_object.has_gravity && !game_object.grounded)
     {
         game_object.velocity += glm::vec2(0, 500) * delta_time;
     }
