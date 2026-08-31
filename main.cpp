@@ -343,6 +343,24 @@ int main(int argc, char *argv[])
             SDL_RenderTexture(state.renderer, obj.texture, nullptr, &dest);
         }
 
+        for(auto& layer: game_state.layers)
+        {
+            for(auto it = layer.begin(); it != layer.end();)
+            {
+                GameObject& object = *it;
+                if (object.type == ObjectType::enemy &&
+                    object.data.enemy.state == EnemyState::dead &&
+                    object.animations[object.currentAnimation].is_done())
+                {
+                    it = layer.erase(it);
+                }
+                else
+                {
+                    it++;
+                }
+            }
+        }
+
         game_state.mapViewport.x = (game_state.player().position.x + TILE_SIZE / 2) - game_state.mapViewport.w / 2;
 
         #ifdef DEBUG
